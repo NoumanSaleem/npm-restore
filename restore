@@ -1,0 +1,37 @@
+#!/bin/bash -euf +x -o pipefail
+
+MATCH_REPO_NAME=([^\/]+)\.git$
+ROOT=$PWD
+
+repos=(
+# list of git repos. e.g:
+#git@github.com:NoumanSaleem/abn.git
+)
+
+for repo in "${repos[@]}"
+do
+  [[ "$repo" =~ $MATCH_REPO_NAME ]]
+  dir="./repos/${BASH_REMATCH[1]}"
+  lastVersion=""
+
+  git clone "$repo" "$dir"
+  cd "$dir"
+
+  for sha1 in $(git log --format="%H" --follow package.json); do
+    git clean -d -x -f
+    git checkout "$sha1"
+    version=$(cat package.json | grep -e '\"version\"')
+
+    if [[ "$version" != "$lastVersion" ]]; then
+      lastVersion=$version
+
+      npm install || true
+      echo "npm install exited with code $?"
+      npm publish . || true
+      echo "npm publish exited with code $?"
+    fi
+  done
+
+  cd "$ROOT"
+done
+
